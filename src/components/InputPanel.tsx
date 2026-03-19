@@ -1,17 +1,28 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface InputPanelProps {
   input: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
+  onLucky?: () => void;
   error: string | null;
   disabled?: boolean;
 }
 
-export default function InputPanel({ input, onChange, onSubmit, error, disabled }: InputPanelProps) {
+export default function InputPanel({ input, onChange, onSubmit, onLucky, error, disabled }: InputPanelProps) {
   const hiddenInputRef = useRef<HTMLInputElement>(null);
+  const [isSelected, setIsSelected] = useState(false);
+  const pendingSelectRef = useRef(false);
+
+  useEffect(() => {
+    if (pendingSelectRef.current && input) {
+      setIsSelected(true);
+      hiddenInputRef.current?.select();
+      pendingSelectRef.current = false;
+    }
+  }, [input]);
 
   useEffect(() => {
     hiddenInputRef.current?.focus();
@@ -21,6 +32,8 @@ export default function InputPanel({ input, onChange, onSubmit, error, disabled 
     if (e.key === "Enter" && input.trim() && !disabled) {
       e.preventDefault();
       onSubmit();
+      setIsSelected(true);
+      hiddenInputRef.current?.select();
     }
   }
 
@@ -48,12 +61,12 @@ export default function InputPanel({ input, onChange, onSubmit, error, disabled 
 
         {/* Input box */}
         <div
-          className="cursor-text overflow-hidden"
+          className="cursor-text overflow-hidden flex items-center"
           style={{
             border: "1px solid #dc95ff",
             paddingTop: 25,
-            paddingBottom: 27,
-            paddingLeft: 17,
+            paddingBottom: 25,
+            paddingLeft: 25,
             paddingRight: 17,
           }}
           onClick={() => hiddenInputRef.current?.focus()}
@@ -63,7 +76,7 @@ export default function InputPanel({ input, onChange, onSubmit, error, disabled 
             ref={hiddenInputRef}
             type="text"
             value={input}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => { setIsSelected(false); onChange(e.target.value); }}
             onKeyDown={handleKeyDown}
             maxLength={500}
             className="absolute opacity-0 pointer-events-none w-px h-px"
@@ -80,29 +93,40 @@ export default function InputPanel({ input, onChange, onSubmit, error, disabled 
               letterSpacing: "-0.6px",
               textTransform: "uppercase",
               lineHeight: "32px",
-              minHeight: 32,
+              height: 32,
               userSelect: "none",
               display: "flex",
               alignItems: "center",
               flexWrap: "nowrap",
+              flex: 1,
+              minWidth: 0,
             }}
           >
             {input ? (
-              <>
-                <span style={{ color: "#e4e4e4" }}>{input}</span>
-                <span
-                  className="cursor-blink"
-                  style={{
-                    display: "inline-block",
-                    width: 14,
-                    height: 28,
-                    background: "#dc95ff",
-                    flexShrink: 0,
-                    marginLeft: 3,
-                    verticalAlign: "middle",
-                  }}
-                />
-              </>
+              isSelected ? (
+                <span style={{
+                  color: "#e4e4e4",
+                  background: "rgba(220,149,255,0.25)",
+                }}>
+                  {input}
+                </span>
+              ) : (
+                <>
+                  <span style={{ color: "#e4e4e4" }}>{input}</span>
+                  <span
+                    className="cursor-blink"
+                    style={{
+                      display: "inline-block",
+                      width: 14,
+                      height: 28,
+                      background: "#dc95ff",
+                      flexShrink: 0,
+                      marginLeft: 3,
+                      verticalAlign: "middle",
+                    }}
+                  />
+                </>
+              )
             ) : (
               <>
                 <span
@@ -121,6 +145,39 @@ export default function InputPanel({ input, onChange, onSubmit, error, disabled 
               </>
             )}
           </div>
+
+          {/* I'm feeling lucky / Clear */}
+          {(input || onLucky) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (input) {
+                  onChange("");
+                  setIsSelected(false);
+                  hiddenInputRef.current?.focus();
+                } else if (onLucky) {
+                  pendingSelectRef.current = true;
+                  onLucky();
+                }
+              }}
+              style={{
+                fontFamily: "var(--font-grotesk)",
+                fontWeight: 400,
+                fontSize: 10,
+                color: "#dc95ff",
+                letterSpacing: "1px",
+                textTransform: "uppercase",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "0 0 0 16px",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {input ? "Clear" : "I\u2019m feeling lucky"}
+            </button>
+          )}
         </div>
       </div>
 

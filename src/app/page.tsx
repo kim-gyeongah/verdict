@@ -8,12 +8,14 @@ import { useEnergyProfile } from "@/hooks/useEnergyProfile";
 import { useArchive } from "@/hooks/useArchive";
 import type { AppState, JudgeResponse, EnergyProfile } from "@/types";
 
-// ASCII bar: 10 chars, | = filled (purple), . = empty (dark)
+// ASCII bar: 10 chars, | = filled, . = empty
 function AsciiBar({ value }: { value: number }) {
-  const filled = Math.round((value / 100) * 10);
+  const isNegative = value < 0;
+  const filled = isNegative ? 0 : Math.round((value / 100) * 10);
   const empty = 10 - filled;
+  const color = isNegative ? "#FF95BD" : "#ACFFE2";
   return (
-    <span style={{ fontFamily: "var(--font-mono), 'IBM Plex Mono', monospace", fontSize: 11, color: "#dc95ff", lineHeight: "17px" }}>
+    <span style={{ fontFamily: "var(--font-mono), 'IBM Plex Mono', monospace", fontSize: 11, color, lineHeight: "17px" }}>
       {"["}
       {"|".repeat(filled)}
       <span style={{ color: "#353534" }}>{".".repeat(empty)}</span>
@@ -23,13 +25,12 @@ function AsciiBar({ value }: { value: number }) {
 }
 
 // Bottom nav icons
-function ManualIcon() {
+function ArchiveIcon() {
   return (
-    <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0.5" y="0.5" width="17" height="19" stroke="white" strokeWidth="0.8"/>
-      <line x1="4" y1="6" x2="14" y2="6" stroke="white" strokeWidth="0.8"/>
-      <line x1="4" y1="10" x2="14" y2="10" stroke="white" strokeWidth="0.8"/>
-      <line x1="4" y1="14" x2="10" y2="14" stroke="white" strokeWidth="0.8"/>
+    <svg width="20" height="18" viewBox="0 0 20 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0.5" y="4.5" width="19" height="13" stroke="white" strokeWidth="0.8"/>
+      <rect x="0.5" y="0.5" width="19" height="4" stroke="white" strokeWidth="0.8"/>
+      <line x1="7" y1="11" x2="13" y2="11" stroke="white" strokeWidth="0.8"/>
     </svg>
   );
 }
@@ -166,9 +167,9 @@ function ResetIcon() {
 }
 
 const METRIC_LABELS: Array<{ label: string; key: keyof EnergyProfile }> = [
-  { label: "SUBSTANCE", key: "substance" },
-  { label: "STYLE",     key: "style" },
-  { label: "DELUSION",  key: "delusion" },
+  { label: "👽 SUBSTANCE", key: "substance" },
+  { label: "👨‍🎤 STYLE",     key: "style" },
+  { label: "🤡 DELUSION",  key: "delusion" },
 ];
 
 type NavTab = "execute";
@@ -184,6 +185,71 @@ const LOADING_MESSAGES = [
 
 const LOADING_GLYPHS = ["🧪", "🔨", "☔️", "⁉️", "✂︎", "😴", "🌻", "🥝", "🐩", "🦠"];
 
+const LUCKY_PROMPTS_RAW = [
+  "Buying another houseplant",
+  "Starting a podcast",
+  "Sourdough starter",
+  "A third monitor",
+  "Going to bed early",
+  "NFTs",
+  "Morning journaling",
+  "Oat milk",
+  "Dropping everything and moving abroad",
+  "Getting into cold plunges",
+  "Deleting Instagram",
+  "Buying a Dyson",
+  "Learning to code at 35",
+  "A standing desk",
+  "Couples therapy",
+  "Notion",
+  "Minimalism",
+  "Owning a cat",
+  "Hiring a life coach",
+  "Buying crypto on a dip",
+  "Linen trousers",
+  "A rain shower head",
+  "Going vegan for January",
+  "Buying a vintage car",
+  "Learning to meditate",
+  "A capsule wardrobe",
+  "Quitting your job to travel",
+  "Buying a Kindle",
+  "Getting a tattoo at 40",
+  "A treadmill desk",
+  "Micro-dosing productivity supplements",
+  "Rewatching The Sopranos again",
+  "An air fryer",
+  "Saying yes to everything for a month",
+  "A bidet",
+  "Moving to a smaller city",
+  "Subscribing to another streaming service",
+  "Getting into vinyl records",
+  "A weighted blanket",
+  "Buying a boat",
+  "Therapy",
+  "Raw milk",
+  "Deleting all social media",
+  "A four-day work week",
+  "Buying Yeezys",
+  "Going back to school at 30",
+  "An espresso machine",
+  "Daily affirmations",
+  "Owning a dog in a small apartment",
+  "Intermittent fasting",
+];
+
+// Shuffle once at module load so order is random on every page load
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const LUCKY_PROMPTS = shuffleArray(LUCKY_PROMPTS_RAW);
+
 export default function Home() {
   const [appState, setAppState] = useState<AppState>("idle");
   const [input, setInput] = useState("");
@@ -192,6 +258,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [navTab, setNavTab] = useState<NavTab>("execute");
   const [showManual, setShowManual] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
   const [loadingGlyphIndex, setLoadingGlyphIndex] = useState(0);
 
@@ -211,7 +278,6 @@ export default function Home() {
     if (!input.trim() || appState === "loading") return;
     const submitted = input.trim();
     setSubmittedInput(submitted);
-    setInput("");
     setError(null);
     setNavTab("execute");
     setAppState("loading");
@@ -243,6 +309,35 @@ export default function Home() {
     setNavTab("execute");
   }
 
+  async function handleLucky() {
+    if (appState === "loading") return;
+    const prompt = LUCKY_PROMPTS[Math.floor(Math.random() * LUCKY_PROMPTS.length)];
+    setSubmittedInput(prompt);
+    setInput(prompt);
+    setError(null);
+    setNavTab("execute");
+    setAppState("loading");
+    try {
+      const res = await fetch("/api/judge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: prompt }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(err.error || "Judgment failed");
+      }
+      const data: JudgeResponse = await res.json();
+      updateProfile(data.verdict);
+      addEntry(prompt, data.verdict);
+      setResult(data);
+      setAppState("result");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      setAppState("idle");
+    }
+  }
+
   function handleReset() {
     resetProfile();
   }
@@ -252,6 +347,100 @@ export default function Home() {
   return (
     <div className="relative" style={{ minHeight: "100dvh", background: "#131313" }}>
       {showManual && <ManualModal onClose={() => setShowManual(false)} />}
+
+      {/* ── History left panel ── */}
+      {showHistory && (
+        <div
+          className="history-panel fixed z-40 flex flex-col"
+          style={{
+            top: 96,
+            left: 0,
+            bottom: 56,
+            width: 260,
+            background: "#131313",
+            borderRight: "1px solid rgba(71,71,71,0.3)",
+            overflowY: "auto",
+          }}
+        >
+          {/* Panel header */}
+          <div
+            style={{
+              padding: "20px 20px 14px",
+              borderBottom: "1px solid rgba(71,71,71,0.3)",
+              flexShrink: 0,
+            }}
+          >
+            <p style={{
+              fontFamily: "var(--font-grotesk)",
+              fontWeight: 700,
+              fontSize: 10,
+              color: "#dc95ff",
+              letterSpacing: "2px",
+              textTransform: "uppercase",
+            }}>
+              SEARCHED
+            </p>
+            <p style={{
+              fontFamily: "var(--font-grotesk)",
+              fontWeight: 400,
+              fontSize: 10,
+              color: "#c6c6c6",
+              letterSpacing: "1px",
+              marginTop: 4,
+            }}>
+              {entries.length} total
+            </p>
+          </div>
+
+          {/* Entry list */}
+          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 0 }}>
+            {entries.length === 0 && (
+              <p style={{
+                fontFamily: "var(--font-grotesk)",
+                fontWeight: 400,
+                fontSize: 11,
+                color: "#555",
+                letterSpacing: "0.5px",
+              }}>
+                Nothing searched yet.
+              </p>
+            )}
+            {entries.map((entry, i) => (
+              <div
+                key={entry.id}
+                style={{
+                  paddingTop: 12,
+                  paddingBottom: 12,
+                  borderBottom: i < entries.length - 1 ? "1px solid rgba(71,71,71,0.2)" : "none",
+                }}
+              >
+                <p style={{
+                  fontFamily: "var(--font-grotesk)",
+                  fontWeight: 500,
+                  fontSize: 11,
+                  color: "#e4e4e4",
+                  letterSpacing: "0.3px",
+                  textTransform: "uppercase",
+                  lineHeight: "16px",
+                  marginBottom: 4,
+                }}>
+                  {entry.input}
+                </p>
+                <p style={{
+                  fontFamily: "var(--font-grotesk)",
+                  fontWeight: 400,
+                  fontSize: 9,
+                  color: entry.verdict === "SUBSTANCE" ? "#ACFFE2" : entry.verdict === "STYLE" ? "#dc95ff" : "#FF95BD",
+                  letterSpacing: "1px",
+                  textTransform: "uppercase",
+                }}>
+                  {entry.verdict}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Background grid overlay */}
       <div
@@ -327,7 +516,7 @@ export default function Home() {
                   fontFamily: "var(--font-mono), 'IBM Plex Mono', monospace",
                   fontWeight: 500,
                   fontSize: 12,
-                  color: "#dc95ff",
+                  color: profile[key] < 0 ? "#FF95BD" : "#ACFFE2",
                   lineHeight: "17px",
                 }}
               >
@@ -376,7 +565,7 @@ export default function Home() {
 
         {/* ── Execute tab ── */}
         {isExecuteActive && (
-          <div className="relative w-full" style={{ maxWidth: 768, paddingLeft: 40 }}>
+          <div className="relative w-full" style={{ maxWidth: 768 }}>
 
             {/* Metadata above input */}
             <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 12 }}>
@@ -423,6 +612,7 @@ export default function Home() {
               input={input}
               onChange={setInput}
               onSubmit={handleJudge}
+              onLucky={handleLucky}
               error={error}
               disabled={appState === "loading"}
             />
@@ -559,11 +749,11 @@ export default function Home() {
         }}
       >
         <button
-          onClick={() => setShowManual(true)}
+          onClick={() => setShowHistory((v) => !v)}
           className="flex flex-col items-center justify-center"
           style={{ padding: 8, gap: 4, background: "none", border: "none", cursor: "pointer" }}
         >
-          <ManualIcon />
+          <ArchiveIcon />
           <span
             style={{
               fontFamily: "var(--font-grotesk)",
@@ -574,7 +764,7 @@ export default function Home() {
               textTransform: "uppercase",
             }}
           >
-            MANUAL
+            ARCHIVE
           </span>
         </button>
 

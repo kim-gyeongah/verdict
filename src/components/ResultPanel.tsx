@@ -1,7 +1,13 @@
 "use client";
 
-import type { JudgeResponse } from "@/types";
+import type { JudgeResponse, Verdict } from "@/types";
 import type { EnergyDelta } from "@/types";
+
+const VERDICT_EMOJI: Record<Verdict, string> = {
+  SUBSTANCE: "👽",
+  STYLE:     "👨‍🎤",
+  DELUSION:  "🤡",
+};
 
 interface ResultPanelProps {
   result: JudgeResponse;
@@ -52,7 +58,7 @@ export default function ResultPanel({ result, delta, entryCount }: ResultPanelPr
             textTransform: "uppercase",
           }}
         >
-          {result.verdict}
+          {VERDICT_EMOJI[result.verdict]} {result.verdict}
         </span>
 
         {/* Reason */}

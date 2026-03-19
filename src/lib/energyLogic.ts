@@ -13,7 +13,7 @@ const DELTA_MAP: Record<Verdict, EnergyDelta> = {
 };
 
 function clamp(v: number): number {
-  return Math.max(0, Math.min(100, Math.round(v)));
+  return Math.max(-100, Math.min(100, Math.round(v)));
 }
 
 export function applyVerdict(
